@@ -19,7 +19,6 @@ function toUnixTime(iso) {
   return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
 }
 
-/** Dedupe by time (keep last). */
 function dedupeByTime(rows) {
   const map = new Map();
   for (const r of rows) {
@@ -32,7 +31,6 @@ function dedupeByTime(rows) {
     .map(([, row]) => row);
 }
 
-/** Build OHLC + synthetic volume from daily closes. */
 function buildSeriesData(rows) {
   const sorted = dedupeByTime(rows);
   const candles = [];
@@ -83,15 +81,41 @@ function buildSeriesData(rows) {
     return out;
   }
 
-  return {
-    candles,
-    volumes,
-    ma20: sma(20),
-    ma50: sma(50),
-  };
+  return { candles, volumes, ma20: sma(20), ma50: sma(50) };
 }
 
-const StockChart = forwardRef(function StockChart({ history, emptyHint = 'Loading…' }, ref) {
+function utcDayKey(unixSec) {
+  return new Date(unixSec * 1000).toISOString().slice(0, 10);
+}
+
+/** Snap buy timestamp to the daily bar for that UTC calendar day (bars are noon UTC). */
+function snapTimeToDailyBar(targetUnix, candles) {
+  if (!candles.length) return targetUnix;
+  const day = utcDayKey(targetUnix);
+  const hit = candles.find((c) => utcDayKey(c.time) === day);
+  if (hit) return hit.time;
+  let best = candles[0].time;
+  let bestD = Math.abs(best - targetUnix);
+  for (const c of candles) {
+    const d = Math.abs(c.time - targetUnix);
+    if (d < bestD) {
+      bestD = d;
+      best = c.time;
+    }
+  }
+  return best;
+}
+
+/**
+ * @param {object} props
+ * @param {Array<{time:string, price:number}>} props.history
+ * @param {Array<{createdAt:string, price:number}>} [props.buyFills]
+ * @param {number|null} [props.avgCost]
+ */
+const StockChart = forwardRef(function StockChart(
+  { history, buyFills = [], avgCost = null, emptyHint = 'Loading…' },
+  ref
+) {
   const isDark = useHtmlDarkClass();
   const wrapRef = useRef(null);
   const chartRef = useRef(null);
@@ -99,6 +123,7 @@ const StockChart = forwardRef(function StockChart({ history, emptyHint = 'Loadin
   const volumeRef = useRef(null);
   const ma20Ref = useRef(null);
   const ma50Ref = useRef(null);
+  const costLinesRef = useRef([]);
 
   useImperativeHandle(ref, () => ({
     resetView() {
@@ -203,6 +228,7 @@ const StockChart = forwardRef(function StockChart({ history, emptyHint = 'Loadin
       volumeRef.current = null;
       ma20Ref.current = null;
       ma50Ref.current = null;
+      costLinesRef.current = [];
     };
   }, [isDark]);
 
@@ -214,11 +240,21 @@ const StockChart = forwardRef(function StockChart({ history, emptyHint = 'Loadin
     const ma50Series = ma50Ref.current;
     if (!chart || !candleSeries || !volumeSeries || !ma20Series || !ma50Series) return;
 
+    for (const line of costLinesRef.current) {
+      try {
+        candleSeries.removePriceLine(line);
+      } catch {
+        /* ignore */
+      }
+    }
+    costLinesRef.current = [];
+
     if (!history?.length) {
       candleSeries.setData([]);
       volumeSeries.setData([]);
       ma20Series.setData([]);
       ma50Series.setData([]);
+      candleSeries.setMarkers([]);
       return;
     }
 
@@ -228,10 +264,38 @@ const StockChart = forwardRef(function StockChart({ history, emptyHint = 'Loadin
     ma20Series.setData(ma20);
     ma50Series.setData(ma50);
 
+    const markers = [];
+    for (const fill of buyFills) {
+      const raw = toUnixTime(fill.createdAt);
+      if (raw == null) continue;
+      const t = snapTimeToDailyBar(raw, candles);
+      markers.push({
+        time: t,
+        position: 'belowBar',
+        shape: 'arrowUp',
+        color: '#34d399',
+        text: `Buy $${Number(fill.price).toFixed(2)}`,
+        id: `buy-${fill.createdAt}-${fill.price}`,
+      });
+    }
+    candleSeries.setMarkers(markers);
+
+    if (avgCost != null && Number.isFinite(avgCost) && avgCost > 0) {
+      const line = candleSeries.createPriceLine({
+        price: avgCost,
+        color: 'rgba(251, 191, 36, 0.85)',
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: 'Avg cost',
+      });
+      costLinesRef.current.push(line);
+    }
+
     requestAnimationFrame(() => {
       chart.timeScale().fitContent();
     });
-  }, [history]);
+  }, [history, buyFills, avgCost]);
 
   if (!history?.length) {
     return (

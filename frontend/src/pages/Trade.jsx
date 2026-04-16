@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore.js';
 import { useMediaQuery } from '../hooks/useMediaQuery.js';
 import Card from '../components/Card.jsx';
 import Button from '../components/Button.jsx';
 import CropSelect from '../components/CropSelect.jsx';
 import StockChart from '../components/StockChart.jsx';
+import CompactChart from '../components/CompactChart.jsx';
 
 const YEAR_START = 2020;
 const YEAR_END = new Date().getUTCFullYear();
 const CHART_PREFS_KEY = 'cropbank_trade_chart_v1';
+
+/** Wide enough for candle + volume + MAs inline (sidebar layouts stay readable). */
+const INLINE_PRO_CHART = '(min-width: 1280px)';
 
 function loadChartPrefs() {
   try {
@@ -39,6 +44,7 @@ export default function Trade() {
   const selectCrop = useGameStore((s) => s.selectCrop);
   const loadHistory = useGameStore((s) => s.loadHistory);
   const historyByCrop = useGameStore((s) => s.historyByCrop);
+  const transactions = useGameStore((s) => s.portfolio.transactions);
   const user = useGameStore((s) => s.user);
   const holdings = useGameStore((s) => s.portfolio.holdings);
   const buy = useGameStore((s) => s.buy);
@@ -48,18 +54,34 @@ export default function Trade() {
   const removeWatch = useGameStore((s) => s.removeWatch);
 
   const chartRef = useRef(null);
+  const compactRef = useRef(null);
+  const modalChartRef = useRef(null);
 
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isInlineProChart = useMediaQuery(INLINE_PRO_CHART);
+
   const [side, setSide] = useState('buy');
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
   const [year, setYear] = useState(YEAR_END);
   const [range, setRange] = useState('1Y');
+  const [chartModalOpen, setChartModalOpen] = useState(false);
 
   const cropId = selectedCropId || crops[0]?.id;
   const crop = crops.find((c) => c.id === cropId);
   const watched = cropId ? watchlist.some((w) => w.cropId === cropId) : false;
+
+  const holding = holdings.find((h) => h.cropId === cropId);
+
+  const buyFills = useMemo(() => {
+    return (transactions || [])
+      .filter((t) => t.cropId === cropId && t.type === 'buy')
+      .slice(0, 40)
+      .map((t) => ({ createdAt: t.createdAt, price: t.price }));
+  }, [transactions, cropId]);
+
+  const avgCost = holding?.quantity > 0 ? holding.avgBuyPrice ?? null : null;
 
   useEffect(() => {
     if (!cropId) return;
@@ -75,6 +97,15 @@ export default function Trade() {
     prefs[cropId] = { range, year };
     saveChartPrefs(prefs);
   }, [cropId, range, year]);
+
+  useEffect(() => {
+    if (!chartModalOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [chartModalOpen]);
 
   const historyOpts = useMemo(() => {
     if (range === 'ALL') {
@@ -103,7 +134,13 @@ export default function Trade() {
 
   const historyRows = historyByCrop[cropId] || [];
 
-  const holdingQty = holdings.find((h) => h.cropId === cropId)?.quantity || 0;
+  const holdingQty = holding?.quantity || 0;
+
+  function resetActiveChart() {
+    if (chartModalOpen) modalChartRef.current?.resetView();
+    else if (isInlineProChart) chartRef.current?.resetView();
+    else compactRef.current?.resetView();
+  }
 
   async function execute() {
     if (!cropId) return;
@@ -127,8 +164,46 @@ export default function Trade() {
   const yearOptions = [];
   for (let y = YEAR_END; y >= YEAR_START; y--) yearOptions.push(y);
 
+  const chartProps = {
+    history: historyRows,
+    buyFills,
+    avgCost,
+    emptyHint: 'Loading chart…',
+  };
+
+  const modal = chartModalOpen
+    ? createPortal(
+        <div
+          className="fixed inset-0 z-[80] flex flex-col bg-black/85 p-2 sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Full chart"
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2 pb-2">
+            <div>
+              <p className="font-display text-lg text-white">{crop.name}</p>
+              <p className="text-xs text-slate-400">Pro chart · pan / zoom · buys marked</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="ghost" className="text-xs" type="button" onClick={() => modalChartRef.current?.resetView()}>
+                Reset zoom
+              </Button>
+              <Button variant="ghost" className="text-xs" type="button" onClick={() => setChartModalOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 rounded-xl border border-white/10 bg-[#0b1220] p-1">
+            <StockChart ref={modalChartRef} {...chartProps} />
+          </div>
+        </div>,
+        document.body
+      )
+    : null;
+
   return (
     <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+      {modal}
       <div className="space-y-3">
         <div className="flex flex-wrap items-end gap-2">
           <span className="w-full text-xs uppercase tracking-widest text-slate-500 sm:w-auto sm:pt-3">Symbol</span>
@@ -175,21 +250,41 @@ export default function Trade() {
               </select>
             </label>
           )}
-          <Button variant="ghost" className="min-h-[40px] shrink-0 text-xs" type="button" onClick={() => chartRef.current?.resetView()}>
-            Reset chart zoom
+          <Button variant="ghost" className="min-h-[40px] shrink-0 text-xs" type="button" onClick={resetActiveChart}>
+            Reset zoom
           </Button>
+          {!isInlineProChart && (
+            <Button className="min-h-[40px] shrink-0 text-xs" type="button" onClick={() => setChartModalOpen(true)}>
+              Expand pro chart
+            </Button>
+          )}
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          TradingView Lightweight Charts™ — candles, <strong>MA 20 / MA 50</strong>, synthetic <strong>volume</strong> (from daily
-          moves). Drag to pan, scroll or pinch to zoom. Range + year are saved per symbol on this device.
+          {isInlineProChart ? (
+            <>
+              <strong>Pro</strong> chart: candles, volume, MAs, <strong>buy markers</strong> and <strong>avg cost</strong> line when you
+              hold a position. Narrow window? You get a <strong>simple price line</strong> here — tap <strong>Expand pro chart</strong> for
+              the full terminal.
+            </>
+          ) : (
+            <>
+              <strong>Compact</strong> view (readable on small screens). Tap <strong>Expand pro chart</strong> for candles, volume, MAs,
+              and your buy prices on the timeline.
+            </>
+          )}
         </p>
 
-        <Card className={`${isDesktop ? 'h-[500px]' : 'h-[400px]'} flex min-h-0 flex-col p-2`}>
+        <Card className={`${isDesktop ? 'h-[500px]' : 'h-[320px]'} flex min-h-0 flex-col p-2 lg:h-[500px]`}>
           <div className="flex shrink-0 items-center justify-between px-2 pb-2 text-sm">
             <div>
               <p className="font-medium text-slate-900 dark:text-white">{crop.name}</p>
-              <p className="text-xs text-slate-500">Last · sim</p>
+              <p className="text-xs text-slate-500">
+                Last · sim
+                {avgCost != null && (
+                  <span className="ml-2 text-amber-600 dark:text-amber-300">Avg ${avgCost.toFixed(2)}</span>
+                )}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -204,7 +299,11 @@ export default function Trade() {
             </div>
           </div>
           <div className="relative min-h-0 flex-1 overflow-hidden">
-            <StockChart ref={chartRef} history={historyRows} emptyHint="Loading chart…" />
+            {isInlineProChart ? (
+              <StockChart ref={chartRef} {...chartProps} />
+            ) : (
+              <CompactChart ref={compactRef} history={historyRows} emptyHint="Loading…" />
+            )}
           </div>
         </Card>
       </div>
