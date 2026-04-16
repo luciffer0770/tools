@@ -31,7 +31,9 @@ npm run dev
 
 The API listens on **http://localhost:4000** and seeds sample crops on first boot. SQLite files are stored under `backend/data/`.
 
-On **first startup** (or if `app_meta.price_history_daily_v1` is not set), the server generates **synthetic daily price points from 2020-01-01** through yesterday for all crops, then keeps **live ticks** as before. This is one-time per database file; delete `backend/data/cropbank.db` to regenerate. Chart requests use `from=2020-01-01` with downsampling (~2500 points max per crop).
+On **first startup** (or if `app_meta.price_history_daily_v1` is not set), the server generates **synthetic daily price points from 2020-01-01** through yesterday for all crops, then keeps **live ticks** as before. This is one-time per database file; delete `backend/data/cropbank.db` to regenerate. Chart requests use `from` / `to` with downsampling (up to ~12k points per request).
+
+**30 crops:** New installs seed 30 symbols from `backend/db/cropCatalog.js`. Existing databases pick up missing names on the next server start (migration v4) and **clear the price-history meta key** so daily history is rebuilt for the full universe.
 
 Optional environment variables:
 

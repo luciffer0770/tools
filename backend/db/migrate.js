@@ -1,6 +1,8 @@
 import { db } from './database.js';
 import bcrypt from 'bcryptjs';
+import { v4 as uuid } from 'uuid';
 import { BCRYPT_ROUNDS } from '../config.js';
+import { CROP_CATALOG } from './cropCatalog.js';
 
 /**
  * Incremental SQLite migrations for CropBank.
@@ -95,6 +97,25 @@ export function runMigrations() {
             value TEXT NOT NULL
           );
         `);
+      },
+    },
+    {
+      version: 4,
+      up() {
+        const insert = db.prepare(`
+          INSERT INTO crops (id, name, base_price, current_price, volatility_factor, demand_index, trend)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `);
+        let added = 0;
+        for (const c of CROP_CATALOG) {
+          const exists = db.prepare('SELECT 1 as x FROM crops WHERE name = ?').get(c.name);
+          if (exists) continue;
+          insert.run(uuid(), c.name, c.base, c.base, c.vol, c.demand, c.trend);
+          added += 1;
+        }
+        if (added > 0) {
+          db.prepare(`DELETE FROM app_meta WHERE key = 'price_history_daily_v1'`).run();
+        }
       },
     },
   ];

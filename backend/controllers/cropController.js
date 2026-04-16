@@ -29,7 +29,7 @@ export function getCropHistory(req, res) {
     if (range) {
       const from = req.query.from ? String(req.query.from) : undefined;
       const to = req.query.to ? String(req.query.to) : undefined;
-      const maxPoints = Math.min(8000, Math.max(200, Number(req.query.maxPoints) || 2000));
+      const maxPoints = Math.min(20000, Math.max(200, Number(req.query.maxPoints) || 4000));
       const history = getHistoryRange(cropId, { from, to, maxPoints });
       return res.json({ cropId, history, range: true });
     }

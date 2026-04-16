@@ -97,6 +97,7 @@ export function getHistoryRange(cropId, { from, to, maxPoints = 2000 } = {}) {
   const step = Math.ceil(rows.length / maxPoints);
   const out = [];
   for (let i = 0; i < rows.length; i += step) out.push(rows[i]);
-  if (out[out.length - 1] !== rows[rows.length - 1]) out.push(rows[rows.length - 1]);
+  const last = rows[rows.length - 1];
+  if (out.length === 0 || out[out.length - 1].time !== last.time) out.push(last);
   return out;
 }

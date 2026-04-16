@@ -30,7 +30,7 @@ export default function CropSelect({ crops, value, onChange, label = 'Crop' }) {
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-white/15 dark:bg-slate-900"
+          className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 max-h-[min(70vh,22rem)] overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-white/15 dark:bg-slate-900"
         >
           {crops.map((c) => (
             <li key={c.id} role="option" aria-selected={c.id === value}>
