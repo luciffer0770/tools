@@ -7,21 +7,22 @@ import Card from '../components/Card.jsx';
 export default function Login() {
   const navigate = useNavigate();
   const login = useGameStore((s) => s.login);
+  const loginAsGuest = useGameStore((s) => s.loginAsGuest);
   const register = useGameStore((s) => s.register);
   const loading = useGameStore((s) => s.loading);
   const storeError = useGameStore((s) => s.error);
   const clearError = useGameStore((s) => s.clearError);
   const user = useGameStore((s) => s.user);
 
-  useEffect(() => {
-    clearError();
-  }, [mode, clearError]);
-
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [localError, setLocalError] = useState('');
+
+  useEffect(() => {
+    clearError();
+  }, [mode, clearError]);
 
   if (user?.tutorialCompleted) {
     navigate('/dashboard', { replace: true });
@@ -64,6 +65,17 @@ export default function Login() {
     }
   }
 
+  async function onGuest() {
+    setLocalError('');
+    clearError();
+    try {
+      await loginAsGuest();
+      navigate('/tutorial');
+    } catch (err) {
+      setLocalError(err.message || 'Could not start guest session. Is the API running?');
+    }
+  }
+
   return (
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-lg flex-col justify-center pb-12 pt-6 lg:max-w-4xl lg:flex-row lg:items-stretch lg:gap-10">
       <div className="lg:flex-1 lg:py-8">
@@ -74,14 +86,23 @@ export default function Login() {
           Trade synthetic crops with news-driven prices.
         </h1>
         <p className="mt-4 text-slate-600 dark:text-slate-400">
-          Virtual cash only. JWT sessions, portfolio analytics, research desk, and a built-in analyst
-          assistant — all mobile-first.
-        </p>
-        <p className="mt-6 text-sm text-slate-500 dark:text-slate-500">
-          Already migrated an old account? Use password <span className="font-mono text-slate-700 dark:text-slate-300">CropBank2024!</span> with your legacy email if prompted.
+          Virtual cash only. Try the game instantly with guest mode — no email required. Full account optional below.
         </p>
       </div>
       <Card className="mt-8 shrink-0 lg:mt-0 lg:w-[400px]">
+        <Button type="button" className="w-full" disabled={loading} onClick={onGuest}>
+          {loading ? 'Starting…' : 'Play as guest (skip login)'}
+        </Button>
+        <p className="mt-2 text-center text-xs text-slate-500">
+          Creates a temporary save on this server. Use a real account if you want the same progress across devices.
+        </p>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+          <span className="text-xs uppercase tracking-widest text-slate-400">or</span>
+          <div className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+        </div>
+
         <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-white/5">
           <button
             type="button"

@@ -1,5 +1,6 @@
 import {
   createUser,
+  createGuestUser,
   findUserByEmail,
   getUser,
   verifyPassword,
@@ -61,6 +62,17 @@ export function me(req, res) {
     const user = getUser(req.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json({ user: toPublicUser(user) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+/** Instant play — no form; creates a fresh guest row + JWT. */
+export function guest(req, res) {
+  try {
+    const user = createGuestUser();
+    const token = signToken({ sub: user.id, email: user.email });
+    res.status(201).json({ token, user: toPublicUser(user) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

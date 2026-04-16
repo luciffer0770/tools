@@ -81,6 +81,7 @@ Base path: `/api`
 |--------|------|------|
 | POST | `/auth/register` | Body `{ email, password, username? }` → `{ token, user }` |
 | POST | `/auth/login` | Body `{ email, password }` → `{ token, user }` |
+| POST | `/auth/guest` | No body — creates a throwaway guest user → `{ token, user }` |
 | GET | `/me` | `Authorization: Bearer <jwt>` |
 | GET | `/crops` | Public |
 | GET | `/crops/:id` | Public |

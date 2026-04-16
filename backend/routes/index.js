@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login, me } from '../controllers/authController.js';
+import { register, login, guest, me } from '../controllers/authController.js';
 import { getCrops, getCropById, getCropHistory } from '../controllers/cropController.js';
 import { buy, sell } from '../controllers/tradeController.js';
 import { getPortfolio } from '../controllers/portfolioController.js';
@@ -29,6 +29,7 @@ const router = Router();
 
 router.post('/auth/register', register);
 router.post('/auth/login', login);
+router.post('/auth/guest', guest);
 router.get('/me', requireAuth, me);
 
 router.get('/crops', getCrops);

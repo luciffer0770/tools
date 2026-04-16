@@ -37,6 +37,16 @@ export async function apiLogin({ email, password }) {
   return data;
 }
 
+export async function apiGuest() {
+  const res = await fetch(`${API}/auth/guest`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Guest session failed');
+  return data;
+}
+
 export async function apiMe(token) {
   const res = await fetch(`${API}/me`, { headers: authHeaders(token) });
   const data = await parse(res);

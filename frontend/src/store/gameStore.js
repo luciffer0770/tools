@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {
   apiLogin,
+  apiGuest,
   apiRegister,
   apiMe,
   apiCrops,
@@ -142,6 +143,22 @@ export const useGameStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const data = await apiLogin({ email, password });
+      persistSession(data.token, data.user);
+      applyThemeClass(data.user.settings?.theme || 'dark');
+      set({ token: data.token, user: data.user });
+      await get().refreshAll();
+    } catch (e) {
+      set({ error: e.message });
+      throw e;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  async loginAsGuest() {
+    set({ loading: true, error: null });
+    try {
+      const data = await apiGuest();
       persistSession(data.token, data.user);
       applyThemeClass(data.user.settings?.theme || 'dark');
       set({ token: data.token, user: data.user });

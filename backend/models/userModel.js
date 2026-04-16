@@ -57,6 +57,15 @@ export function createUser({ email, password, username }) {
   return getUser(id);
 }
 
+/** One-click demo account (unique email per session). */
+export function createGuestUser() {
+  const id = uuid();
+  const email = `guest-${id}@cropbank.local`;
+  const password = `guest-${id.slice(0, 8)}`;
+  const username = `Guest ${id.slice(0, 4)}`;
+  return createUser({ email, password, username });
+}
+
 export function verifyPassword(user, password) {
   if (!user?.password_hash) return false;
   return bcrypt.compareSync(password, user.password_hash);
