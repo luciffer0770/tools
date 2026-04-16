@@ -75,3 +75,28 @@ export function getHistory(cropId, limit = 120) {
     .all(cropId, limit)
     .reverse();
 }
+
+/**
+ * Long-range history (oldest first). Optional `from` / `to` ISO date filters on ts.
+ * `maxPoints` downsamples by taking every k-th row so charts stay light.
+ */
+export function getHistoryRange(cropId, { from, to, maxPoints = 2000 } = {}) {
+  let sql = `SELECT price as price, ts as time FROM price_history WHERE crop_id = ?`;
+  const args = [cropId];
+  if (from) {
+    sql += ` AND ts >= ?`;
+    args.push(from);
+  }
+  if (to) {
+    sql += ` AND ts <= ?`;
+    args.push(to);
+  }
+  sql += ` ORDER BY ts ASC`;
+  const rows = db.prepare(sql).all(...args);
+  if (rows.length <= maxPoints) return rows;
+  const step = Math.ceil(rows.length / maxPoints);
+  const out = [];
+  for (let i = 0; i < rows.length; i += step) out.push(rows[i]);
+  if (out[out.length - 1] !== rows[rows.length - 1]) out.push(rows[rows.length - 1]);
+  return out;
+}

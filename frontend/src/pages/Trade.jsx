@@ -12,10 +12,23 @@ import { useGameStore } from '../store/gameStore.js';
 import { useMediaQuery } from '../hooks/useMediaQuery.js';
 import Card from '../components/Card.jsx';
 import Button from '../components/Button.jsx';
+import CropSelect from '../components/CropSelect.jsx';
 
-function formatTick(ts) {
-  const d = new Date(ts);
-  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+function formatAxisLabel(ms, spanDays) {
+  const d = new Date(ms);
+  if (spanDays > 730) {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+  if (spanDays > 60) {
+    return `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+  }
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function tooltipLabel(ms, spanDays) {
+  const d = new Date(ms);
+  if (spanDays > 730) return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' });
 }
 
 export default function Trade() {
@@ -48,12 +61,21 @@ export default function Trade() {
 
   const chartData = useMemo(() => {
     const rows = historyByCrop[cropId] || [];
-    return rows.map((r, i) => ({
-      i,
-      price: r.price,
-      label: formatTick(r.time),
-    }));
+    return rows.map((r) => {
+      const timeMs = Date.parse(r.time);
+      return {
+        timeMs: Number.isFinite(timeMs) ? timeMs : 0,
+        price: r.price,
+      };
+    });
   }, [historyByCrop, cropId]);
+
+  const spanDays = useMemo(() => {
+    if (chartData.length < 2) return 0;
+    const a = chartData[0].timeMs;
+    const b = chartData[chartData.length - 1].timeMs;
+    return Math.max(0, (b - a) / (86400000));
+  }, [chartData]);
 
   const holdingQty = holdings.find((h) => h.cropId === cropId)?.quantity || 0;
 
@@ -79,21 +101,14 @@ export default function Trade() {
   return (
     <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-xs uppercase tracking-widest text-slate-500">Crop</label>
-          <select
-            value={crop.id}
-            onChange={(e) => selectCrop(e.target.value)}
-            className="min-h-[44px] flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none ring-teal-500/30 focus:ring-2 dark:border-white/10 dark:bg-white/5 dark:text-white sm:max-w-xs"
-          >
-            {crops.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-end gap-2">
+          <span className="w-full text-xs uppercase tracking-widest text-slate-500 sm:w-auto sm:pt-3">Crop</span>
+          <CropSelect crops={crops} value={crop.id} onChange={(id) => selectCrop(id)} />
         </div>
-        <Card className={`${isDesktop ? 'h-[420px]' : 'h-[320px]'} p-2`}>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Chart: daily sim history from 2020 (downsampled for speed) + live ticks. Not real market data.
+        </p>
+        <Card className={`${isDesktop ? 'h-[440px]' : 'h-[340px]'} p-2`}>
           <div className="flex items-center justify-between px-2 pb-2 text-sm">
             <div>
               <p className="font-medium text-slate-900 dark:text-white">{crop.name}</p>
@@ -111,34 +126,57 @@ export default function Trade() {
               <p className="font-display text-xl text-teal-600 dark:text-neon-mint">${crop.currentPrice.toFixed(2)}</p>
             </div>
           </div>
-          <div className="h-[calc(100%-52px)] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#5eead4" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#5eead4" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
-                <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <YAxis
-                  domain={['auto', 'auto']}
-                  width={48}
-                  tick={{ fill: '#94a3b8', fontSize: 10 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'rgba(15,23,42,0.95)',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 12,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: '#e2e8f0' }}
-                />
-                <Area type="monotone" dataKey="price" stroke="#5eead4" fill="url(#fill)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="h-[calc(100%-52px)] w-full min-h-[200px]">
+            {chartData.length < 2 ? (
+              <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading chart…</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fillTrade" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                  <XAxis
+                    dataKey="timeMs"
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    scale="time"
+                    tickFormatter={(v) => formatAxisLabel(v, spanDays)}
+                    minTickGap={32}
+                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                  />
+                  <YAxis
+                    domain={['auto', 'auto']}
+                    width={52}
+                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    tickFormatter={(v) => `$${v}`}
+                  />
+                  <Tooltip
+                    labelFormatter={(v) => tooltipLabel(v, spanDays)}
+                    formatter={(v) => [`$${Number(v).toFixed(2)}`, 'Price']}
+                    contentStyle={{
+                      background: 'rgba(15,23,42,0.95)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: 12,
+                      fontSize: 12,
+                    }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke="#0d9488"
+                    fill="url(#fillTrade)"
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={chartData.length < 400}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -195,7 +233,11 @@ export default function Trade() {
               Est. {side === 'buy' ? 'cost' : 'credit'}: $
               {(crop.currentPrice * qty).toFixed(2)}
             </p>
-            {msg && <p className="mt-2 text-sm text-neon-pink">{msg}</p>}
+            {msg && (
+              <p className="mt-2 text-sm text-rose-600 dark:text-neon-pink" role="status">
+                {msg}
+              </p>
+            )}
             <Button className="mt-4 w-full" disabled={busy} onClick={execute}>
               {busy ? 'Working…' : side === 'buy' ? 'Place buy' : 'Place sell'}
             </Button>

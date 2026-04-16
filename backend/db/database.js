@@ -116,5 +116,10 @@ export function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_price_history_crop_ts ON price_history(crop_id, ts);
     CREATE INDEX IF NOT EXISTS idx_snapshots_user_ts ON portfolio_snapshots(user_id, ts);
+
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
   `);
 }

@@ -31,6 +31,8 @@ npm run dev
 
 The API listens on **http://localhost:4000** and seeds sample crops on first boot. SQLite files are stored under `backend/data/`.
 
+On **first startup** (or if `app_meta.price_history_daily_v1` is not set), the server generates **synthetic daily price points from 2020-01-01** through yesterday for all crops, then keeps **live ticks** as before. This is one-time per database file; delete `backend/data/cropbank.db` to regenerate. Chart requests use `from=2020-01-01` with downsampling (~2500 points max per crop).
+
 Optional environment variables:
 
 - `PORT` — API port (default `4000`)

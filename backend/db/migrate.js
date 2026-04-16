@@ -86,6 +86,17 @@ export function runMigrations() {
         }
       },
     },
+    {
+      version: 3,
+      up() {
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS app_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          );
+        `);
+      },
+    },
   ];
 
   const insert = db.prepare(

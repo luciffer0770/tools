@@ -91,8 +91,14 @@ export async function apiCrop(id) {
   return data;
 }
 
-export async function apiHistory(cropId, limit) {
-  const q = limit ? `?limit=${limit}` : '';
+export async function apiHistory(cropId, opts = {}) {
+  const params = new URLSearchParams();
+  if (opts.from) params.set('from', opts.from);
+  if (opts.to) params.set('to', opts.to);
+  if (opts.maxPoints) params.set('maxPoints', String(opts.maxPoints));
+  if (opts.limit && !opts.from) params.set('limit', String(opts.limit));
+  const qs = params.toString();
+  const q = qs ? `?${qs}` : '';
   const res = await fetch(apiPath(`/history/${cropId}${q}`));
   const data = await parse(res);
   if (!res.ok) throw new Error(httpError(res, data, 'Failed to load history'));

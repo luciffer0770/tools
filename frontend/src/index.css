@@ -58,3 +58,11 @@ body {
 .toast-in {
   animation: toast-in 0.25s ease-out;
 }
+
+/* Native selects (fallback pages) — match dark/light */
+select {
+  color-scheme: light;
+}
+.dark select {
+  color-scheme: dark;
+}

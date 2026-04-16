@@ -7,6 +7,7 @@ import { initSchema, db } from './db/database.js';
 import { runMigrations } from './db/migrate.js';
 import { seedCropsIfEmpty } from './db/seed.js';
 import { tickPrices, appendInitialHistory } from './services/priceEngine.js';
+import { backfillDailyHistoryIfNeeded, isHistoryBackfilled } from './services/historyBackfill.js';
 import { spawnNewsEvent, pruneExpiredNews } from './services/newsEngine.js';
 import { listCrops } from './models/cropModel.js';
 import { listNews } from './services/newsEngine.js';
@@ -46,7 +47,12 @@ const corsOptions = {
 initSchema();
 runMigrations();
 seedCropsIfEmpty();
-appendInitialHistory();
+const backfill = backfillDailyHistoryIfNeeded();
+if (backfill.ran) {
+  console.log(`Price history: daily backfill from 2020 applied (${backfill.crops} crops).`);
+} else if (!isHistoryBackfilled()) {
+  appendInitialHistory();
+}
 
 const app = express();
 app.use(cors(corsOptions));

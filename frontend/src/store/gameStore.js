@@ -240,8 +240,8 @@ export const useGameStore = create((set, get) => ({
 
   selectCrop: (id) => set({ selectedCropId: id }),
 
-  async loadHistory(cropId) {
-    const data = await apiHistory(cropId, 150);
+  async loadHistory(cropId, opts) {
+    const data = await apiHistory(cropId, opts || { from: '2020-01-01', maxPoints: 2500 });
     set((s) => ({
       historyByCrop: { ...s.historyByCrop, [cropId]: data.history },
     }));
