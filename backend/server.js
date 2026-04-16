@@ -12,19 +12,45 @@ import { listNews } from './services/newsEngine.js';
 
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
+const ALLOW_TUNNEL =
+  process.env.CROPBANK_ALLOW_TUNNEL === '1' || process.env.CROPBANK_ALLOW_TUNNEL === 'true';
+
+const allowedOrigins = CLIENT_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (ALLOW_TUNNEL) {
+    try {
+      const host = new URL(origin).hostname;
+      if (host.endsWith('.trycloudflare.com')) return true;
+      if (host.endsWith('.loca.lt')) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  return false;
+}
+
+const corsOptions = {
+  origin(origin, cb) {
+    cb(null, isOriginAllowed(origin));
+  },
+  credentials: true,
+};
 
 initSchema();
 seedCropsIfEmpty();
 appendInitialHistory();
 
 const app = express();
-app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use('/api', router);
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: CLIENT_ORIGIN, methods: ['GET', 'POST'] },
+  cors: { origin: corsOptions.origin, methods: ['GET', 'POST'] },
 });
 
 io.on('connection', (socket) => {
