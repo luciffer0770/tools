@@ -5,7 +5,7 @@ CropBank is a **mobile-first** web simulation where crops behave like tradable a
 ## Stack
 
 - **Frontend:** React (Vite), Tailwind CSS, Zustand, Recharts, PWA (vite-plugin-pwa)
-- **Backend:** Node.js, Express, better-sqlite3, Socket.io
+- **Backend:** Node.js, Express, better-sqlite3, bcrypt, JWT, Socket.io
 
 ## Quick start
 
@@ -34,7 +34,11 @@ The API listens on **http://localhost:4000** and seeds sample crops on first boo
 Optional environment variables:
 
 - `PORT` — API port (default `4000`)
-- `CLIENT_ORIGIN` — CORS origin for browser clients (default `http://localhost:5173`)
+- `CLIENT_ORIGIN` — CORS origin(s), comma-separated (default `http://localhost:5173`)
+- `CROPBANK_ALLOW_TUNNEL=1` — allow `*.trycloudflare.com` and `*.loca.lt` origins (dev tunnels)
+- `JWT_SECRET` — signing secret for access tokens (**set in production**)
+- `JWT_EXPIRES` — token lifetime (default `7d`)
+- `BCRYPT_ROUNDS` — bcrypt cost factor (default `10`)
 
 ### 3. Run the web app
 
@@ -53,36 +57,58 @@ npm run build:frontend
 
 Serve the `frontend/dist` folder behind HTTPS for full PWA install support. Point `CLIENT_ORIGIN` at your deployed origin and configure your host to proxy `/api` and WebSocket traffic to the Node server.
 
+## Database migrations
+
+On every server start, `runMigrations()` in `backend/db/migrate.js` applies versioned schema upgrades to the existing SQLite file:
+
+- Adds `email`, `password_hash`, `settings_json`, `last_daily_reward_at`, `tutorial_step` to `users` when missing.
+- Adds `avg_cost_basis` to `holdings`.
+- Creates `watchlist`, `portfolio_snapshots`, and `achievements` tables.
+
+**Legacy installs** (users created before JWT): rows without email receive `migrated-<userId>@cropbank.local` and password **`CropBank2024!`** so they can sign in and then change credentials via a future profile flow.
+
 ## Game flow
 
-1. **Landing** — mock login (creates a SQLite user).
-2. **Tutorial** — practice balance **$100**; finishing resets to **$1000** and unlocks the app.
-3. **Dashboard / Markets / Trade / News / Profile** — bottom navigation on phones, sidebar on large screens.
+1. **Register / Login** — email + password; JWT stored in `localStorage`.
+2. **Tutorial** — guided overlay, $100 practice balance; finish or skip restores **$1000** and unlocks the app.
+3. **Main app** — Dashboard, Markets, Trade (sidebar on desktop), Portfolio, Watchlist, News, Research, Settings. Floating **AI assistant** uses rule-based `/ai/query`.
 
 ## API
 
 Base path: `/api`
 
-| Method | Path | Notes |
-|--------|------|--------|
-| POST | `/login` | Body `{ "username": "..." }` — returns `user` with `id` |
-| GET | `/me` | Header `X-User-Id` |
-| GET | `/crops` | All crops |
-| GET | `/crops/:id` | Single crop |
-| GET | `/history/:cropId` | Price ticks |
-| GET | `/portfolio` | Header `X-User-Id` |
-| POST | `/buy` | `{ cropId, quantity }` + `X-User-Id` |
-| POST | `/sell` | `{ cropId, quantity }` + `X-User-Id` |
-| GET | `/news` | Recent headlines |
-| POST | `/tutorial/start` | Sets balance to $100 (once) |
-| POST | `/tutorial/complete` | Sets balance to $1000, marks tutorial done |
+| Method | Path | Auth |
+|--------|------|------|
+| POST | `/auth/register` | Body `{ email, password, username? }` → `{ token, user }` |
+| POST | `/auth/login` | Body `{ email, password }` → `{ token, user }` |
+| GET | `/me` | `Authorization: Bearer <jwt>` |
+| GET | `/crops` | Public |
+| GET | `/crops/:id` | Public |
+| GET | `/history/:cropId` | Public |
+| GET | `/portfolio` | Bearer |
+| POST | `/buy` | Bearer, `{ cropId, quantity }` |
+| POST | `/sell` | Bearer, `{ cropId, quantity }` |
+| GET | `/watchlist` | Bearer |
+| POST | `/watchlist/add` | Bearer, `{ cropId }` |
+| POST | `/watchlist/remove` | Bearer, `{ cropId }` |
+| GET | `/research` | Public |
+| POST | `/ai/query` | Bearer, `{ message }` |
+| GET | `/settings` | Bearer (returns user incl. settings) |
+| PATCH | `/settings` | Bearer, `{ theme?, soundEnabled?, notificationsEnabled? }` |
+| POST | `/settings/reset-game` | Bearer |
+| POST | `/settings/daily-reward` | Bearer |
+| GET | `/news` | Public |
+| POST | `/tutorial/start` | Bearer |
+| POST | `/tutorial/complete` | Bearer |
+| POST | `/tutorial/skip` | Bearer |
+| POST | `/tutorial/step` | Bearer, `{ step }` |
 
-Real-time crop and news updates are pushed over **Socket.io** (`crops`, `news` events).
+Socket.io: connect with `auth: { token: "<jwt>" }` (or Bearer header) for future user-scoped channels; public broadcasts still emit `crops` and `news`.
 
 ## Project layout
 
 ```
-backend/   Express API, SQLite, engines
+backend/   Express API, SQLite, engines, services
 frontend/  Vite React client, PWA, Zustand
 ```
 

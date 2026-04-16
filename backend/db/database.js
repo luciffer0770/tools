@@ -10,14 +10,20 @@ const dbPath = join(dataDir, 'cropbank.db');
 
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 export function initSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE,
+      password_hash TEXT,
+      username TEXT NOT NULL,
       balance REAL NOT NULL DEFAULT 1000,
       tutorial_completed INTEGER NOT NULL DEFAULT 0,
+      tutorial_step INTEGER NOT NULL DEFAULT 0,
+      settings_json TEXT,
+      last_daily_reward_at TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -35,6 +41,7 @@ export function initSchema() {
       user_id TEXT NOT NULL,
       crop_id TEXT NOT NULL,
       quantity INTEGER NOT NULL DEFAULT 0,
+      avg_cost_basis REAL NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, crop_id),
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (crop_id) REFERENCES crops(id)
@@ -51,6 +58,33 @@ export function initSchema() {
       created_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (crop_id) REFERENCES crops(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS watchlist (
+      user_id TEXT NOT NULL,
+      crop_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, crop_id),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (crop_id) REFERENCES crops(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      ts TEXT NOT NULL,
+      total_value REAL NOT NULL,
+      invested REAL NOT NULL,
+      cash REAL NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS achievements (
+      user_id TEXT NOT NULL,
+      key TEXT NOT NULL,
+      unlocked_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, key),
+      FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS news_events (
@@ -81,5 +115,6 @@ export function initSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_price_history_crop_ts ON price_history(crop_id, ts);
+    CREATE INDEX IF NOT EXISTS idx_snapshots_user_ts ON portfolio_snapshots(user_id, ts);
   `);
 }

@@ -1,8 +1,8 @@
 const API = '/api';
 
-function headers(userId) {
+function authHeaders(token) {
   const h = { 'Content-Type': 'application/json' };
-  if (userId) h['X-User-Id'] = userId;
+  if (token) h.Authorization = `Bearer ${token}`;
   return h;
 }
 
@@ -15,21 +15,32 @@ async function parse(res) {
   }
 }
 
-export async function apiLogin(username) {
-  const res = await fetch(`${API}/login`, {
+export async function apiRegister({ email, password, username }) {
+  const res = await fetch(`${API}/auth/register`, {
     method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ username }),
+    headers: authHeaders(),
+    body: JSON.stringify({ email, password, username }),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Registration failed');
+  return data;
+}
+
+export async function apiLogin({ email, password }) {
+  const res = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ email, password }),
   });
   const data = await parse(res);
   if (!res.ok) throw new Error(data.error || 'Login failed');
   return data;
 }
 
-export async function apiMe(userId) {
-  const res = await fetch(`${API}/me`, { headers: headers(userId) });
+export async function apiMe(token) {
+  const res = await fetch(`${API}/me`, { headers: authHeaders(token) });
   const data = await parse(res);
-  if (!res.ok) throw new Error(data.error || 'Auth failed');
+  if (!res.ok) throw new Error(data.error || 'Session expired');
   return data;
 }
 
@@ -55,17 +66,17 @@ export async function apiHistory(cropId, limit) {
   return data;
 }
 
-export async function apiPortfolio(userId) {
-  const res = await fetch(`${API}/portfolio`, { headers: headers(userId) });
+export async function apiPortfolio(token) {
+  const res = await fetch(`${API}/portfolio`, { headers: authHeaders(token) });
   const data = await parse(res);
   if (!res.ok) throw new Error(data.error || 'Failed to load portfolio');
   return data;
 }
 
-export async function apiBuy(userId, cropId, quantity) {
+export async function apiBuy(token, cropId, quantity) {
   const res = await fetch(`${API}/buy`, {
     method: 'POST',
-    headers: headers(userId),
+    headers: authHeaders(token),
     body: JSON.stringify({ cropId, quantity }),
   });
   const data = await parse(res);
@@ -73,10 +84,10 @@ export async function apiBuy(userId, cropId, quantity) {
   return data;
 }
 
-export async function apiSell(userId, cropId, quantity) {
+export async function apiSell(token, cropId, quantity) {
   const res = await fetch(`${API}/sell`, {
     method: 'POST',
-    headers: headers(userId),
+    headers: authHeaders(token),
     body: JSON.stringify({ cropId, quantity }),
   });
   const data = await parse(res);
@@ -92,22 +103,121 @@ export async function apiNews(limit) {
   return data;
 }
 
-export async function apiTutorialStart(userId) {
+export async function apiWatchlist(token) {
+  const res = await fetch(`${API}/watchlist`, { headers: authHeaders(token) });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Watchlist failed');
+  return data;
+}
+
+export async function apiWatchlistAdd(token, cropId) {
+  const res = await fetch(`${API}/watchlist/add`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ cropId }),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Add failed');
+  return data;
+}
+
+export async function apiWatchlistRemove(token, cropId) {
+  const res = await fetch(`${API}/watchlist/remove`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ cropId }),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Remove failed');
+  return data;
+}
+
+export async function apiResearch() {
+  const res = await fetch(`${API}/research`);
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Research failed');
+  return data;
+}
+
+export async function apiAiQuery(token, message) {
+  const res = await fetch(`${API}/ai/query`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ message }),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'AI request failed');
+  return data;
+}
+
+export async function apiPatchSettings(token, partial) {
+  const res = await fetch(`${API}/settings`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify(partial),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Settings update failed');
+  return data;
+}
+
+export async function apiResetGame(token) {
+  const res = await fetch(`${API}/settings/reset-game`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Reset failed');
+  return data;
+}
+
+export async function apiDailyReward(token) {
+  const res = await fetch(`${API}/settings/daily-reward`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Reward failed');
+  return data;
+}
+
+export async function apiTutorialStart(token) {
   const res = await fetch(`${API}/tutorial/start`, {
     method: 'POST',
-    headers: headers(userId),
+    headers: authHeaders(token),
   });
   const data = await parse(res);
   if (!res.ok) throw new Error(data.error || 'Tutorial start failed');
   return data;
 }
 
-export async function apiTutorialComplete(userId) {
+export async function apiTutorialComplete(token) {
   const res = await fetch(`${API}/tutorial/complete`, {
     method: 'POST',
-    headers: headers(userId),
+    headers: authHeaders(token),
   });
   const data = await parse(res);
   if (!res.ok) throw new Error(data.error || 'Tutorial complete failed');
+  return data;
+}
+
+export async function apiTutorialSkip(token) {
+  const res = await fetch(`${API}/tutorial/skip`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Skip failed');
+  return data;
+}
+
+export async function apiTutorialStep(token, step) {
+  const res = await fetch(`${API}/tutorial/step`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ step }),
+  });
+  const data = await parse(res);
+  if (!res.ok) throw new Error(data.error || 'Step update failed');
   return data;
 }

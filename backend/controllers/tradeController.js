@@ -1,27 +1,34 @@
 import { v4 as uuid } from 'uuid';
 import { getCrop } from '../models/cropModel.js';
 import {
-  getHoldings,
-  upsertHolding,
+  applyBuy,
+  applySell,
   addTransaction,
   listTransactions,
+  recordPortfolioSnapshot,
 } from '../models/portfolioModel.js';
 import { getUser, setBalance } from '../models/userModel.js';
+import { computePortfolioMetrics } from '../services/portfolioAnalytics.js';
+import { unlockAchievement } from '../models/achievementModel.js';
 
-export function getPortfolio(req, res) {
-  try {
-    const userId = req.userId;
-    const user = getUser(userId);
-    const holdings = getHoldings(userId);
-    const transactions = listTransactions(userId, 80);
-    res.json({
-      balance: user.balance,
-      holdings,
-      transactions,
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+function snap(userId) {
+  const m = computePortfolioMetrics(userId);
+  if (!m) return;
+  recordPortfolioSnapshot(userId, {
+    totalValue: m.totalValue,
+    invested: m.invested,
+    cash: m.balance,
+  });
+}
+
+function checkAchievements(userId) {
+  const m = computePortfolioMetrics(userId);
+  if (!m) return [];
+  const unlocked = [];
+  const txCount = listTransactions(userId, 500).length;
+  if (txCount > 0 && unlockAchievement(userId, 'first_trade')) unlocked.push('first_trade');
+  if (m.unrealizedPlPct >= 10 && unlockAchievement(userId, 'profit_10pct')) unlocked.push('profit_10pct');
+  return unlocked;
 }
 
 export function buy(req, res) {
@@ -41,7 +48,7 @@ export function buy(req, res) {
       return res.status(400).json({ error: 'Insufficient balance' });
     }
     setBalance(userId, Math.round((user.balance - total) * 100) / 100);
-    upsertHolding(userId, cropId, qty);
+    applyBuy(userId, cropId, qty, price);
     addTransaction({
       id: uuid(),
       userId,
@@ -52,10 +59,14 @@ export function buy(req, res) {
       total,
       createdAt: new Date().toISOString(),
     });
+    snap(userId);
+    const achievements = checkAchievements(userId);
     res.json({
       ok: true,
       balance: getUser(userId).balance,
       holding: { cropId, quantity: qty },
+      achievements,
+      toast: 'Fill confirmed — position updated.',
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -74,13 +85,14 @@ export function sell(req, res) {
     if (!crop) return res.status(404).json({ error: 'Crop not found' });
     const user = getUser(userId);
     const price = crop.currentPrice;
-    const holding = getHoldings(userId).find((h) => h.cropId === cropId);
+    const metrics = computePortfolioMetrics(userId);
+    const holding = metrics.holdings.find((h) => h.cropId === cropId);
     if (!holding || holding.quantity < qty) {
       return res.status(400).json({ error: 'Insufficient crop quantity' });
     }
     const total = Math.round(price * qty * 100) / 100;
     setBalance(userId, Math.round((user.balance + total) * 100) / 100);
-    upsertHolding(userId, cropId, -qty);
+    applySell(userId, cropId, qty);
     addTransaction({
       id: uuid(),
       userId,
@@ -91,9 +103,13 @@ export function sell(req, res) {
       total,
       createdAt: new Date().toISOString(),
     });
+    snap(userId);
+    const achievements = checkAchievements(userId);
     res.json({
       ok: true,
       balance: getUser(userId).balance,
+      achievements,
+      toast: 'Sale filled — cash credited.',
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
