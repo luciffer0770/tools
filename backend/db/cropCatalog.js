@@ -1,0 +1,36 @@
+/**
+ * Full tradable crop universe (synthetic). Used by seed + migrations.
+ * Each: name, base, vol, demand, trend
+ */
+export const CROP_CATALOG = [
+  { name: 'Solar Wheat', base: 12.5, vol: 0.35, demand: 0.4, trend: 0.02 },
+  { name: 'Neon Corn', base: 8.2, vol: 0.55, demand: -0.1, trend: -0.01 },
+  { name: 'Quantum Rice', base: 22.0, vol: 0.28, demand: 0.6, trend: 0.015 },
+  { name: 'Bio Barley', base: 15.75, vol: 0.42, demand: 0.2, trend: 0.005 },
+  { name: 'Plasma Soy', base: 18.3, vol: 0.5, demand: -0.25, trend: -0.02 },
+  { name: 'Cryo Cotton', base: 9.9, vol: 0.38, demand: 0.15, trend: 0.01 },
+  { name: 'Hydro Hemp', base: 31.4, vol: 0.62, demand: 0.5, trend: 0.03 },
+  { name: 'Ion Potato', base: 6.4, vol: 0.33, demand: 0.05, trend: 0 },
+  { name: 'Pulse Lentil', base: 11.2, vol: 0.36, demand: 0.12, trend: 0.008 },
+  { name: 'Vapor Oats', base: 9.1, vol: 0.44, demand: -0.05, trend: -0.004 },
+  { name: 'Luma Sorghum', base: 14.6, vol: 0.41, demand: 0.18, trend: 0.011 },
+  { name: 'Tidal Sugarcane', base: 19.8, vol: 0.48, demand: 0.22, trend: 0.009 },
+  { name: 'Matrix Alfalfa', base: 13.3, vol: 0.39, demand: 0.08, trend: 0.003 },
+  { name: 'Chrome Chickpea', base: 17.9, vol: 0.43, demand: -0.08, trend: -0.006 },
+  { name: 'Flux Millet', base: 7.8, vol: 0.52, demand: 0.03, trend: 0.001 },
+  { name: 'Helix Sesame', base: 38.2, vol: 0.58, demand: 0.35, trend: 0.018 },
+  { name: 'Apex Rye', base: 16.4, vol: 0.37, demand: 0.1, trend: 0.007 },
+  { name: 'Stratus Flax', base: 21.1, vol: 0.45, demand: -0.12, trend: -0.009 },
+  { name: 'Nova Teff', base: 12.9, vol: 0.34, demand: 0.14, trend: 0.004 },
+  { name: 'Prism Buckwheat', base: 10.3, vol: 0.46, demand: 0.06, trend: 0.002 },
+  { name: 'Orbit Quinoa', base: 28.7, vol: 0.51, demand: 0.28, trend: 0.014 },
+  { name: 'Vector Yam', base: 5.9, vol: 0.56, demand: -0.18, trend: -0.012 },
+  { name: 'Echo Cassava', base: 8.7, vol: 0.49, demand: 0.09, trend: 0.005 },
+  { name: 'Zen Pea', base: 11.8, vol: 0.32, demand: 0.16, trend: 0.01 },
+  { name: 'Arc Turmeric', base: 42.5, vol: 0.61, demand: 0.4, trend: 0.022 },
+  { name: 'Fission Ginger', base: 35.0, vol: 0.59, demand: 0.32, trend: 0.017 },
+  { name: 'Spark Vanilla', base: 55.0, vol: 0.65, demand: 0.45, trend: 0.025 },
+  { name: 'Glitch Cacao', base: 48.0, vol: 0.57, demand: -0.2, trend: -0.011 },
+  { name: 'Radian Coffee', base: 64.0, vol: 0.54, demand: 0.38, trend: 0.02 },
+  { name: 'Photon Tea', base: 26.0, vol: 0.4, demand: 0.24, trend: 0.013 },
+];
