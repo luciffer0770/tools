@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useGameStore } from '../store/gameStore.js';
 import { useMediaQuery } from '../hooks/useMediaQuery.js';
 import Card from '../components/Card.jsx';
@@ -8,6 +8,24 @@ import StockChart from '../components/StockChart.jsx';
 
 const YEAR_START = 2020;
 const YEAR_END = new Date().getUTCFullYear();
+const CHART_PREFS_KEY = 'cropbank_trade_chart_v1';
+
+function loadChartPrefs() {
+  try {
+    const raw = localStorage.getItem(CHART_PREFS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveChartPrefs(prefs) {
+  try {
+    localStorage.setItem(CHART_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    /* ignore */
+  }
+}
 
 function yearBounds(y) {
   const from = `${y}-01-01`;
@@ -29,6 +47,8 @@ export default function Trade() {
   const addWatch = useGameStore((s) => s.addWatch);
   const removeWatch = useGameStore((s) => s.removeWatch);
 
+  const chartRef = useRef(null);
+
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [side, setSide] = useState('buy');
   const [qty, setQty] = useState(1);
@@ -40,6 +60,21 @@ export default function Trade() {
   const cropId = selectedCropId || crops[0]?.id;
   const crop = crops.find((c) => c.id === cropId);
   const watched = cropId ? watchlist.some((w) => w.cropId === cropId) : false;
+
+  useEffect(() => {
+    if (!cropId) return;
+    const prefs = loadChartPrefs();
+    const p = prefs[cropId];
+    if (p?.range) setRange(p.range);
+    if (p?.year != null) setYear(Math.min(YEAR_END, Math.max(YEAR_START, p.year)));
+  }, [cropId]);
+
+  useEffect(() => {
+    if (!cropId) return;
+    const prefs = loadChartPrefs();
+    prefs[cropId] = { range, year };
+    saveChartPrefs(prefs);
+  }, [cropId, range, year]);
 
   const historyOpts = useMemo(() => {
     if (range === 'ALL') {
@@ -140,14 +175,17 @@ export default function Trade() {
               </select>
             </label>
           )}
+          <Button variant="ghost" className="min-h-[40px] shrink-0 text-xs" type="button" onClick={() => chartRef.current?.resetView()}>
+            Reset chart zoom
+          </Button>
         </div>
 
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Candle chart (TradingView Lightweight Charts™): drag to pan, pinch or scroll to zoom — like a stock terminal.
-          Simulated daily OHLC from closes; not real markets.
+          TradingView Lightweight Charts™ — candles, <strong>MA 20 / MA 50</strong>, synthetic <strong>volume</strong> (from daily
+          moves). Drag to pan, scroll or pinch to zoom. Range + year are saved per symbol on this device.
         </p>
 
-        <Card className={`${isDesktop ? 'h-[480px]' : 'h-[380px]'} flex flex-col p-2`}>
+        <Card className={`${isDesktop ? 'h-[500px]' : 'h-[400px]'} flex min-h-0 flex-col p-2`}>
           <div className="flex shrink-0 items-center justify-between px-2 pb-2 text-sm">
             <div>
               <p className="font-medium text-slate-900 dark:text-white">{crop.name}</p>
@@ -165,8 +203,8 @@ export default function Trade() {
               <p className="font-display text-xl text-teal-600 dark:text-neon-mint">${crop.currentPrice.toFixed(2)}</p>
             </div>
           </div>
-          <div className="min-h-0 flex-1">
-            <StockChart history={historyRows} emptyHint="Loading chart…" />
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <StockChart ref={chartRef} history={historyRows} emptyHint="Loading chart…" />
           </div>
         </Card>
       </div>

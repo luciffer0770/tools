@@ -35,6 +35,8 @@ On **first startup** (or if `app_meta.price_history_daily_v1` is not set), the s
 
 **30 crops:** New installs seed 30 symbols from `backend/db/cropCatalog.js`. Existing databases pick up missing names on the next server start (migration v4) and **clear the price-history meta key** so daily history is rebuilt for the full universe.
 
+**Trade chart:** Uses TradingView Lightweight Charts with `autoSize`, candlesticks, synthetic volume histogram, MA20/MA50 overlays, and per-symbol saved range/year in `localStorage` (`cropbank_trade_chart_v1`).
+
 Optional environment variables:
 
 - `PORT` — API port (default `4000`)
