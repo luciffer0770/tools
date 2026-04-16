@@ -10,8 +10,21 @@ export function getStoredToken() {
   }
 }
 
+function socketOrigin() {
+  const base = (import.meta.env.VITE_API_URL || '').trim();
+  if (base.startsWith('http')) {
+    try {
+      const u = new URL(base.replace(/\/api\/?$/, '/'));
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      /* fall through */
+    }
+  }
+  return window.location.origin;
+}
+
 export function createGameSocket() {
-  const url = import.meta.env.DEV ? window.location.origin : window.location.origin;
+  const url = socketOrigin();
   const token = getStoredToken();
   return io(url, {
     path: '/socket.io',

@@ -57,12 +57,13 @@ export function createUser({ email, password, username }) {
   return getUser(id);
 }
 
-/** One-click demo account (unique email per session). */
+/** One-click demo account (unique email + display name per session). */
 export function createGuestUser() {
   const id = uuid();
-  const email = `guest-${id}@cropbank.local`;
-  const password = `guest-${id.slice(0, 8)}`;
-  const username = `Guest ${id.slice(0, 4)}`;
+  const short = id.replace(/-/g, '').slice(0, 10);
+  const email = `guest-${short}@cropbank.local`;
+  const password = `guest-${short}`;
+  const username = `Guest-${short}`;
   return createUser({ email, password, username });
 }
 

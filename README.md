@@ -49,6 +49,12 @@ npm run dev
 
 Open **http://localhost:5173**. The Vite dev server proxies `/api` and `/socket.io` to the backend.
 
+**Guest / login returns 404:** The running Node process is probably an old build. Stop it, `cd backend && npm run dev` again from this repo. If you open the app without Vite’s proxy (e.g. `file://` or a static host), create `frontend/.env.local` with:
+
+`VITE_API_URL=http://localhost:4000/api`
+
+(copy from `frontend/.env.example`), restart `npm run dev` in `frontend/`, and ensure `CLIENT_ORIGIN` on the API includes your dev URL.
+
 ### 4. Production build (frontend)
 
 ```bash
