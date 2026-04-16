@@ -173,5 +173,12 @@ function getNewsById(id) {
 
 export function pruneExpiredNews() {
   const isoNow = new Date().toISOString();
-  db.prepare(`DELETE FROM news_events WHERE expires_at <= ?`).run(isoNow);
+  db.transaction(() => {
+    db.prepare(
+      `DELETE FROM news_crop_effects WHERE event_id IN (
+        SELECT id FROM news_events WHERE expires_at <= ?
+      )`
+    ).run(isoNow);
+    db.prepare(`DELETE FROM news_events WHERE expires_at <= ?`).run(isoNow);
+  })();
 }
